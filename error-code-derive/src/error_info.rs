@@ -1,4 +1,4 @@
-use darling::ast::{Data, Fields};
+use darling::ast::{Data, Fields, Style};
 use darling::{util, FromDeriveInput, FromVariant};
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -46,18 +46,23 @@ pub fn process_derive_to_error_info(_input: DeriveInput) -> TokenStream {
         .map(|v| {
             let EnumVariants {
                 ident,
-                fields:_,
+                fields,
                 code,
                 app_code,
                 client_msg
             } = v;
             let code = format!("{}{}", prefix, code);
+            let varint_code = match fields.style{
+                Style::Struct=>quote!{#name::#ident {..}},
+                Style::Tuple=>quote!{#name::#ident(_)},
+                Style::Unit=>quote!{#name::#ident}
+            };
             // let varint_code = match fields.style{
             //
             // }
             quote! {
-                #name::#ident(_)=>{
-                    ErrorInfo::try_new(
+                #varint_code=>{
+                    ErrorInfo::new(
                           #app_code,
                             #code,
                             #client_msg,
@@ -67,11 +72,11 @@ pub fn process_derive_to_error_info(_input: DeriveInput) -> TokenStream {
              }
         }).collect::<Vec<_>>();
     quote! {
-        use error_code::{ErrorInfo, ToErrorInfo};
+        use error_code::{ErrorInfo, ToErrorInfo as _};
         impl #generics ToErrorInfo for #name #generics {
             type T = #app_type;
 
-            fn to_error_info(&self)->Result<ErrorInfo<Self::T>,<Self::T as FromStr>::Err>{
+            fn to_error_info(&self)->ErrorInfo<Self::T>{
                 match self{
                     #(#code)*
                 }
@@ -83,7 +88,6 @@ pub fn process_derive_to_error_info(_input: DeriveInput) -> TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
     use darling::FromDeriveInput;
 
     #[test]
@@ -108,6 +112,10 @@ mod tests {
         let parsed: DeriveInput = syn::parse_str(input).unwrap();
         let info = ErrorData::from_derive_input(&parsed).unwrap();
         println!(" {:#?}", info);
-        
+        assert_eq!(info.ident.to_string(),"MyError");
+        // assert_eq!(info.app_type.to_string(),"http::StatusCode");
+        let code = process_derive_to_error_info(parsed);
+        println!("{:#?}",code);
+
     }
 }

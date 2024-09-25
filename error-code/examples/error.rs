@@ -1,11 +1,11 @@
-use std::str::FromStr;
-use error_code_derive::ToErrorInfo;
+
+use error_code::ToErrorInfo;
 
 #[derive(Debug,thiserror::Error, ToErrorInfo)]
 #[error_info(app_type="http::StatusCode", prefix="01")]
 pub enum MyError {
     #[error("Invalid command: {0}")]
-    #[error_info(code="IC", app_code="500")]
+    #[error_info(code="IC", app_code="400")]
     InvalidCommand(String),
 
     #[error("Invalid argument: {0}")]
